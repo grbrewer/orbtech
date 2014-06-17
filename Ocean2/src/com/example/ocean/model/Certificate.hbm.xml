@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+<!-- Generated 13-May-2014 16:13:57 by Hibernate Tools 3.4.0.CR1 -->
+<hibernate-mapping>
+    <class name="com.example.ocean.model.Certificate" table="certificate" catalog="cryptodb">
+        <id name="idcertificate" type="java.lang.Integer">
+            <column name="idcertificate" />
+            <generator class="identity" />
+        </id>
+        <many-to-one name="user" class="com.example.ocean.model.User" fetch="select">
+            <column name="email" length="45" not-null="true" />
+        </many-to-one>
+        <many-to-one name="keyring" class="com.example.ocean.model.Keyring" fetch="select">
+            <column name="serialnumber" length="45" not-null="true" />
+        </many-to-one>
+        <property name="data" type="binary">
+            <column name="data" not-null="true" />
+        </property>
+    </class>
+</hibernate-mapping>

@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+"http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+<!-- Generated 13-May-2014 16:13:57 by Hibernate Tools 3.4.0.CR1 -->
+<hibernate-mapping>
+    <class name="com.example.ocean.model.Keyring" table="keyring" catalog="cryptodb">
+        <id name="serialnumber" type="string">
+            <column name="serialnumber" length="45" />
+            <generator class="assigned" />
+        </id>
+        <many-to-one name="user" class="com.example.ocean.model.User" fetch="select">
+            <column name="email" length="45" not-null="true" />
+        </many-to-one>
+        <property name="publickey" type="string">
+            <column name="publickey" length="512" not-null="true" />
+        </property>
+        <set name="certificates" table="certificate" inverse="true" lazy="true" fetch="select">
+            <key>
+                <column name="serialnumber" length="45" not-null="true" />
+            </key>
+            <one-to-many class="com.example.ocean.model.Certificate" />
+        </set>
+    </class>
+</hibernate-mapping>
