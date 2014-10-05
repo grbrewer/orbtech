@@ -115,7 +115,7 @@ public class CryptoEngine {
 		//Initialise Certificate Manager
 		certificateManager = new CertificateManager();
 		
-		currentUser = new User("mick@simply.org", "90210", "GL45EZ");
+		currentUser = new User("flynn@encom.com", "90210", "GL12AS");
 		currentUserPassword = "reindeer2048";
 		
 		currentKeyRing = new Keyring();
@@ -149,6 +149,7 @@ public class CryptoEngine {
 																		NoSuchProviderException, 
 																		InvalidKeySpecException 
 	{
+		/*
 	    BASE64Decoder decoder = new BASE64Decoder();
 
 	    byte[] c = null;
@@ -161,7 +162,18 @@ public class CryptoEngine {
 	    X509EncodedKeySpec x509KeySpec = new X509EncodedKeySpec(c);
 	    returnKey = keyFact.generatePublic(x509KeySpec);
 	    
-	    return returnKey;
+	    return returnKey;	    
+	    */
+		
+	    //Convert PublicKeyString to Byte Stream
+	    BASE64Decoder decoder = new BASE64Decoder();
+	    byte[] sigBytes2 = decoder.decodeBuffer(pubKeyData);
+
+	    // Convert the public key bytes into a PublicKey object
+	    X509EncodedKeySpec x509KeySpec = new X509EncodedKeySpec(sigBytes2);
+	    KeyFactory keyFact = KeyFactory.getInstance("RSA", "BC");
+	    return keyFact.generatePublic(x509KeySpec);
+	    
 	}
 	
 	/**
@@ -305,13 +317,16 @@ public class CryptoEngine {
 		ArrayList<Keyring>  keyrings = (ArrayList<Keyring>) query.list();
 		
 		//Here we extract a collection of serial identifier strings..
-		ArrayList<String> pkStrings = new ArrayList<String>();
+		ArrayList<String> serialNoStrings = new ArrayList<String>();
 		for(Keyring k : keyrings)
 		{
-			pkStrings.add(k.getPublickey());
+			serialNoStrings.add(k.getSerialnumber());
 		}
 		
-		String[] serialNumbers = (String[]) pkStrings.toArray();
+		//String[] serialNumbers = (String[]) pkStrings.toArray();
+
+		String[] serialNumbers = new String[serialNoStrings.size()];
+		serialNumbers = serialNoStrings.toArray(serialNumbers);
 		
 		return serialNumbers;
 	}
@@ -340,13 +355,16 @@ public class CryptoEngine {
 		
 		//Now add the public key to Keyring
 		
-		KeyFactory fact = KeyFactory.getInstance("RSA");
+		KeyFactory fact = KeyFactory.getInstance("RSA", "BC");
 	    X509EncodedKeySpec spec = fact.getKeySpec(pubKey, 
 	    										  X509EncodedKeySpec.class);
 	    
-	    byte[] cookedPubKey = Base64.encodeBase64(spec.getEncoded());
+	    BASE64Encoder encoder = new BASE64Encoder();
 	    
-	    currentKeyRing.setPublickey(cookedPubKey.toString());
+	    //String cookedPubKey = encoder.encode(spec.getEncoded());
+	    String cookedPubKey = encoder.encode(pubKey.getEncoded());  
+	    
+	    currentKeyRing.setPublickey(cookedPubKey);
 	    
 	    
 	    //Start Hibernate session
