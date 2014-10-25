@@ -76,6 +76,30 @@ public class CertificateManager {
 	    return certGen.generateX509Certificate(pair.getPrivate(), "BC");
 	}
 	
+	/***
+	 * Generate an X509 Certificate, based on a public key 
+	 * and signed by another's private key.
+	 * @param pubKey
+	 * @param privKey
+	 * @return
+	 * @throws Exception
+	 */
+	@SuppressWarnings("deprecation")
+	public synchronized X509Certificate issueRootCert(PublicKey pubKey, PrivateKey privKey) throws Exception
+	{
+		X509V1CertificateGenerator  certGen = new X509V1CertificateGenerator();
+		
+		certGen.setSerialNumber(BigInteger.valueOf(1));
+	    certGen.setIssuerDN(new X500Principal("CN=Test CA Certificate"));
+	    certGen.setNotBefore(new Date(System.currentTimeMillis()));
+	    certGen.setNotAfter(new Date(System.currentTimeMillis() + VALIDITY_PERIOD));
+	    certGen.setSubjectDN(new X500Principal("CN=Test Certificate"));
+	    certGen.setPublicKey(pubKey);
+	    certGen.setSignatureAlgorithm("SHA1WithRSAEncryption");
+	
+	    return certGen.generateX509Certificate(privKey, "BC");
+	}
+	
 	/**
 	 * Generate an intermediate v1 certificate, signed by a 3rd party.
 	 * @param intKey

@@ -18,6 +18,7 @@ import com.example.ocean.engine.*;
 public class TestEngine {
 
 	private CryptoEngine cryptEng;
+	private String testKey;
 	
 	@BeforeClass
 	public static void setUpBeforeClass() throws Exception {
@@ -30,6 +31,7 @@ public class TestEngine {
 	@Before
 	public void setUp() throws Exception {
 		cryptEng = new CryptoEngine();
+		testKey = cryptEng.generateTestPublicKey();
 		//cryptEng.generateKeyPair();
 	}
 
@@ -52,6 +54,11 @@ public class TestEngine {
 		String[] serialNos = cryptEng.getPublicKeySerialNos("jon@doe.org");
 		System.out.println(serialNos[0]);
 		assertNotNull(serialNos);
+	}
+	
+	@Test
+	public void testPublishPublicKey() throws Exception {
+		cryptEng.publishPublicKey("alan1@encom.com", testKey);
 	}
 
 }

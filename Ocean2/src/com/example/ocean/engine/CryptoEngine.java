@@ -7,6 +7,7 @@ import java.security.PublicKey;
 import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyStore;
+import java.security.Key;
 import java.security.KeyPairGenerator;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
@@ -16,6 +17,7 @@ import java.security.SignatureException;
 import java.security.UnrecoverableKeyException;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
+import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.security.Signature;
@@ -177,11 +179,48 @@ public class CryptoEngine {
 	}
 	
 	/**
+	 * Generate a test Public Key
+	 * @return a public key string for testing
+	 * @throws NoSuchAlgorithmException
+	 * @throws NoSuchProviderException
+	 * @throws InvalidKeySpecException
+	 */
+	public static String generateTestPublicKey() throws	NoSuchAlgorithmException, 
+															NoSuchProviderException, 
+															InvalidKeySpecException
+	{
+		SecureRandom random = new SecureRandom();
+		
+		//Create the initial Key Pair
+		KeyPairGenerator generator;
+		
+		generator = KeyPairGenerator.getInstance("RSA","BC");
+		
+		generator.initialize(1024, random);
+		
+		KeyPair pair = generator.generateKeyPair();
+		PublicKey pubKey = pair.getPublic();
+		PrivateKey	privKey = pair.getPrivate();
+		
+		KeyFactory fact = KeyFactory.getInstance("RSA", "BC");
+	    X509EncodedKeySpec spec = fact.getKeySpec(pubKey, 
+	    										  X509EncodedKeySpec.class);
+	    
+	    BASE64Encoder encoder = new BASE64Encoder();
+	    
+	    //String cookedPubKey = encoder.encode(spec.getEncoded());
+	    String cookedPubKey = encoder.encode(pubKey.getEncoded());  
+	    
+	    return cookedPubKey;
+	    		
+	}
+	
+	/**
 	 * Encode public key as String
 	 * @param p
 	 * @return
 	 */
-	public static String publicKeyToString(PublicKey p) {
+	private static String publicKeyToString(PublicKey p) {
 
 	    byte[] publicKeyBytes = p.getEncoded();
 	    BASE64Encoder encoder = new BASE64Encoder();
@@ -331,7 +370,145 @@ public class CryptoEngine {
 		return serialNumbers;
 	}
 	
+	/***
+	 * Returns the key pair for the System account
+	 * @return the system key pair
+	 * @throws KeyStoreException
+	 * @throws UnrecoverableKeyException
+	 * @throws NoSuchAlgorithmException
+	 * @throws CertificateException
+	 * @throws IOException
+	 */
+	private KeyPair getSystemKeyPair(String password, String keyStore) throws KeyStoreException, 
+																				UnrecoverableKeyException, 
+																				NoSuchAlgorithmException, 
+																				CertificateException, 
+																				IOException
+	{
+		FileInputStream is = new FileInputStream(keyStore);
+	    privateKeyStore.load(is, password.toCharArray());
+
+	    String alias = INTERMEDIATE_ALIAS;
+
+	    Key key = privateKeyStore.getKey(alias, password.toCharArray());
+	    if (key instanceof PrivateKey) 
+	    {
+	    	// Get public key from stored certificate
+	    	java.security.cert.Certificate cert = privateKeyStore.getCertificate(alias);
+	    	PublicKey publicKey = cert.getPublicKey();
+
+	    	// Construct and return a key-pair
+	    	return new KeyPair(publicKey, (PrivateKey) key);
+	    }
+	    
+	    return null;
+	}
+	
+	/**
+	 * Convert from an X509 Cert to PEM
+	 * @param x509Cert
+	 * @return
+	 * @throws CertificateEncodingException
+	 */
+	private static String convertToPem(X509Certificate x509Cert) throws CertificateEncodingException 
+	{
+		 Base64 encoder = new Base64(64);
+		 String cert_begin = "-----BEGIN CERTIFICATE-----\n";
+		 String end_cert = "-----END CERTIFICATE-----";
+
+		 byte[] derCert = x509Cert.getEncoded();
+		 String pemCertPre = new String(encoder.encode(derCert));
+		 String pemCert = cert_begin + pemCertPre + end_cert;
+		 return pemCert;
+	}
+	
+	/***
+	 * Load a user object, by email
+	 * @param userEmail
+	 * @param currSession
+	 * @return
+	 */
+	private User loadUser(String userEmail, Session currSession)
+	{
+		String downloadQuery = "from User where email = :myEmail";
+		Query query = currSession.createQuery(downloadQuery);
+		query.setParameter("myEmail", userEmail);
+		
+		User newUser = (User) query.uniqueResult();
+		
+		return newUser;
+	}
+	
 	//-------------- Exportable functions ------------------ //
+	
+	/**
+	 * Publish a given public key on our Web Service
+	 * @param userEmail
+	 * @param rawPubKeyText
+	 * @throws Exception
+	 */
+	public void publishPublicKey(String userEmail, String rawPubKeyText) throws 	Exception
+	{
+		PublicKey pubKey = stringToPublicKey(rawPubKeyText);
+		
+		//First we need to generate a Serial Number
+		BASE64Encoder encoder = new BASE64Encoder();
+	    String pubKeyText = encoder.encode(pubKey.getEncoded());  
+	        
+		String serialNumber = CryptoUtil.generateSerialNumber(pubKeyText);
+		
+		//Generate X509 Certificate for this key
+		//signed using the System key-pair.
+		Session session = hibernateSessionFactory.openSession();
+				
+		//Load the system user
+		//User systemUser = loadUser("flynn@encom.com", session);
+		
+		Keyring systemKeyRing = new Keyring();
+		systemKeyRing.setSerialnumber("fff5-1c990-ccd1-67a48");
+		
+		//Get the private key from file
+		String keyStoreID = "private_" + systemKeyRing.getSerialnumber();
+		
+		KeyPair systemKeyPair = getSystemKeyPair("reindeer2048", keyStoreID);
+		
+		//Issue a root-level certificate for the current user's public key.
+		X509Certificate rootCert = certificateManager.issueRootCert(pubKey, systemKeyPair.getPrivate());
+		
+		//Now we can save a new user to the database		
+		User newUser = new User(userEmail, "17293", "GL45JY");
+		
+		//Initiate the transaction
+		session.beginTransaction();
+		
+		currentUser = newUser;
+		currentKeyRing.setUser(currentUser);
+		currentKeyRing.setPublickey(pubKeyText);
+		currentKeyRing.setSerialnumber(serialNumber);
+
+		currentUser.getKeyrings().add(currentKeyRing);
+		
+		//Prepare the certification data..,
+		byte[] data = CryptoUtil.convertToByteArray(rootCert);
+		
+		currentRootCert.setUser(currentUser);
+		currentRootCert.setKeyring(currentKeyRing);
+		currentRootCert.setData(data);
+
+		currentKeyRing.getCertificates().add(currentRootCert);
+		
+		//Save all the User credentials
+		session.save(currentUser);
+	    session.save(currentKeyRing);
+	    session.save(currentRootCert);
+	    
+	    //commit and close the Hibernate transaction	    
+	    session.getTransaction().commit();
+		session.close();
+		
+	}
+	
+	
 	
 	/**
 	 * Generate and persist a Key Pair, Database and Keystore
