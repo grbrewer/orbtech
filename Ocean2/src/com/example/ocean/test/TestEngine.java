@@ -45,7 +45,7 @@ public class TestEngine {
 												 InvalidKeySpecException, 
 												 IOException {
 		
-		byte[] publicKey = cryptEng.downloadPublicKey("flynn@encom.com", "fff5-1c990-ccd1-67a48");
+		String publicKey = cryptEng.downloadPublicKey("kevin@encom.com", "41be-b1ee8-7e26-27c5d");
 		assertNotNull(publicKey);
 	}
 
@@ -58,7 +58,7 @@ public class TestEngine {
 	
 	@Test
 	public void testPublishPublicKey() throws Exception {
-		cryptEng.publishPublicKey("alan1@encom.com", testKey);
+		cryptEng.publishPublicKey("alan3@encom.com", testKey);
 	}
 
 }

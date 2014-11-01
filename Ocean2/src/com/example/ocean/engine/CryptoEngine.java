@@ -33,7 +33,12 @@ import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.apache.commons.codec.binary.Base64;
+import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
+import org.bouncycastle.crypto.util.SubjectPublicKeyInfoFactory;
+import org.bouncycastle.jcajce.provider.asymmetric.rsa.BCRSAPublicKey;
 import org.bouncycastle.jce.PKCS10CertificationRequest;
+import org.bouncycastle.openssl.PEMWriter;
+import org.bouncycastle.openssl.PEMParser;
 
 import sun.misc.BASE64Decoder;
 import sun.misc.BASE64Encoder;
@@ -117,7 +122,7 @@ public class CryptoEngine {
 		//Initialise Certificate Manager
 		certificateManager = new CertificateManager();
 		
-		currentUser = new User("flynn@encom.com", "90210", "GL12AS");
+		currentUser = new User("kevin@encom.com", "90210", "GL12AS");
 		currentUserPassword = "reindeer2048";
 		
 		currentKeyRing = new Keyring();
@@ -151,31 +156,19 @@ public class CryptoEngine {
 																		NoSuchProviderException, 
 																		InvalidKeySpecException 
 	{
-		/*
-	    BASE64Decoder decoder = new BASE64Decoder();
-
-	    byte[] c = null;
-	    KeyFactory keyFact = null;
-	    PublicKey returnKey = null;
-
-	    c = decoder.decodeBuffer(pubKeyData);
-	    keyFact = KeyFactory.getInstance("RSA", "BC");
-
-	    X509EncodedKeySpec x509KeySpec = new X509EncodedKeySpec(c);
-	    returnKey = keyFact.generatePublic(x509KeySpec);
-	    
-	    return returnKey;	    
-	    */
+		StringReader reader = new StringReader(pubKeyData);
 		
-	    //Convert PublicKeyString to Byte Stream
-	    BASE64Decoder decoder = new BASE64Decoder();
-	    byte[] sigBytes2 = decoder.decodeBuffer(pubKeyData);
-
-	    // Convert the public key bytes into a PublicKey object
-	    X509EncodedKeySpec x509KeySpec = new X509EncodedKeySpec(sigBytes2);
+		PEMParser keyReader = new PEMParser(reader);
+		SubjectPublicKeyInfo pubKeyInfo = (SubjectPublicKeyInfo) keyReader.readObject();
+		
+		byte[] rawPublicKeyData = pubKeyInfo.getEncoded(); 
+		
+		//We need to close the PEM parser when finished
+		keyReader.close();
+		
+		X509EncodedKeySpec x509KeySpec = new X509EncodedKeySpec(rawPublicKeyData);
 	    KeyFactory keyFact = KeyFactory.getInstance("RSA", "BC");
-	    return keyFact.generatePublic(x509KeySpec);
-	    
+	    return keyFact.generatePublic(x509KeySpec);		
 	}
 	
 	/**
@@ -184,10 +177,12 @@ public class CryptoEngine {
 	 * @throws NoSuchAlgorithmException
 	 * @throws NoSuchProviderException
 	 * @throws InvalidKeySpecException
+	 * @throws IOException 
 	 */
 	public static String generateTestPublicKey() throws	NoSuchAlgorithmException, 
 															NoSuchProviderException, 
-															InvalidKeySpecException
+															InvalidKeySpecException, 
+															IOException
 	{
 		SecureRandom random = new SecureRandom();
 		
@@ -202,15 +197,13 @@ public class CryptoEngine {
 		PublicKey pubKey = pair.getPublic();
 		PrivateKey	privKey = pair.getPrivate();
 		
-		KeyFactory fact = KeyFactory.getInstance("RSA", "BC");
-	    X509EncodedKeySpec spec = fact.getKeySpec(pubKey, 
-	    										  X509EncodedKeySpec.class);
-	    
-	    BASE64Encoder encoder = new BASE64Encoder();
-	    
-	    //String cookedPubKey = encoder.encode(spec.getEncoded());
-	    String cookedPubKey = encoder.encode(pubKey.getEncoded());  
-	    
+		StringWriter stringWriter=new StringWriter();
+		PEMWriter pemFormatWriter=new PEMWriter(stringWriter);
+		pemFormatWriter.writeObject(pubKey);
+		pemFormatWriter.close();
+		
+		String cookedPubKey = stringWriter.toString();
+		
 	    return cookedPubKey;
 	    		
 	}
@@ -310,7 +303,7 @@ public class CryptoEngine {
 	 * @throws NoSuchProviderException 
 	 * @throws NoSuchAlgorithmException 
 	 */
-	public byte[] downloadPublicKey(String username, String serialnumber) throws NoSuchAlgorithmException, 
+	public String downloadPublicKey(String username, String serialnumber) throws NoSuchAlgorithmException, 
 																				   NoSuchProviderException, 
 																				   InvalidKeySpecException, 
 																				   IOException
@@ -330,11 +323,12 @@ public class CryptoEngine {
 		
 		PublicKey pubKey = stringToPublicKey(keyring.getPublickey());
 		
-		KeyFactory fact = KeyFactory.getInstance("RSA");
-	    X509EncodedKeySpec spec = fact.getKeySpec(pubKey, 
-	    										  X509EncodedKeySpec.class);
-	    
-	    byte[] cookedPubKey = Base64.encodeBase64(spec.getEncoded());
+		StringWriter stringWriter=new StringWriter();
+		PEMWriter pemFormatWriter=new PEMWriter(stringWriter);
+		pemFormatWriter.writeObject(pubKey);
+		pemFormatWriter.close();
+		
+		String cookedPubKey = stringWriter.toString();
 	    
 	    return cookedPubKey;
 	}
@@ -362,8 +356,6 @@ public class CryptoEngine {
 			serialNoStrings.add(k.getSerialnumber());
 		}
 		
-		//String[] serialNumbers = (String[]) pkStrings.toArray();
-
 		String[] serialNumbers = new String[serialNoStrings.size()];
 		serialNumbers = serialNoStrings.toArray(serialNumbers);
 		
@@ -447,14 +439,11 @@ public class CryptoEngine {
 	 * @param rawPubKeyText
 	 * @throws Exception
 	 */
-	public void publishPublicKey(String userEmail, String rawPubKeyText) throws 	Exception
+	public void publishPublicKey(String userEmail, String pubKeyText) throws 	Exception
 	{
-		PublicKey pubKey = stringToPublicKey(rawPubKeyText);
+		PublicKey pubKey = stringToPublicKey(pubKeyText);
 		
-		//First we need to generate a Serial Number
-		BASE64Encoder encoder = new BASE64Encoder();
-	    String pubKeyText = encoder.encode(pubKey.getEncoded());  
-	        
+		//First we need to generate a Serial Number    
 		String serialNumber = CryptoUtil.generateSerialNumber(pubKeyText);
 		
 		//Generate X509 Certificate for this key
@@ -465,7 +454,7 @@ public class CryptoEngine {
 		//User systemUser = loadUser("flynn@encom.com", session);
 		
 		Keyring systemKeyRing = new Keyring();
-		systemKeyRing.setSerialnumber("fff5-1c990-ccd1-67a48");
+		systemKeyRing.setSerialnumber("41be-b1ee8-7e26-27c5d");
 		
 		//Get the private key from file
 		String keyStoreID = "private_" + systemKeyRing.getSerialnumber();
@@ -530,17 +519,16 @@ public class CryptoEngine {
 		PublicKey pubKey = pair.getPublic();
 		PrivateKey	privKey = pair.getPrivate();
 		
-		//Now add the public key to Keyring
+		//Convert public key to PEM format
+		StringWriter stringWriter=new StringWriter();
+		PEMWriter pemFormatWriter=new PEMWriter(stringWriter);
+		pemFormatWriter.writeObject(pubKey);
+		pemFormatWriter.close();
 		
-		KeyFactory fact = KeyFactory.getInstance("RSA", "BC");
-	    X509EncodedKeySpec spec = fact.getKeySpec(pubKey, 
-	    										  X509EncodedKeySpec.class);
+		String cookedPubKey = stringWriter.toString();
+		
 	    
-	    BASE64Encoder encoder = new BASE64Encoder();
-	    
-	    //String cookedPubKey = encoder.encode(spec.getEncoded());
-	    String cookedPubKey = encoder.encode(pubKey.getEncoded());  
-	    
+		//Now add the public key string to Keyring	
 	    currentKeyRing.setPublickey(cookedPubKey);
 	    
 	    

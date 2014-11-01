@@ -48,7 +48,7 @@ public class OceanImpl implements OceanInterface {
 	}
 	
 	@Override
-	public byte[] downloadPublicKey(String username, String serialNumber) throws NoSuchAlgorithmException, 
+	public String downloadPublicKey(String username, String serialNumber) throws NoSuchAlgorithmException, 
 																				   NoSuchProviderException, 
 																				   InvalidKeySpecException, 
 																				   IOException
@@ -56,5 +56,9 @@ public class OceanImpl implements OceanInterface {
 		return crypteng.downloadPublicKey(username, serialNumber);
 	}
 	
-	
+	@Override
+	public void publishPublicKey(String userEmail, String pkText) throws Exception
+	{
+		crypteng.publishPublicKey(userEmail, pkText);
+	}
 }
