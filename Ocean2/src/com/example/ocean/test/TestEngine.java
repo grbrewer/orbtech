@@ -50,6 +50,12 @@ public class TestEngine {
 	}
 
 	@Test
+	public void testGetUserNames() {
+		String[] userNames = cryptEng.getUserNames("k");
+		assertEquals(userNames[0],"kevin@encom.com");
+	}
+	
+	@Test
 	public void testGetPublicKeySerialNos() {
 		String[] serialNos = cryptEng.getPublicKeySerialNos("jon@doe.org");
 		System.out.println(serialNos[0]);

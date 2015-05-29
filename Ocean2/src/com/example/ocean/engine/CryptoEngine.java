@@ -362,6 +362,36 @@ public class CryptoEngine {
 		return serialNumbers;
 	}
 	
+	/**
+	 * Return a list of user names, from a given search string.
+	 * @param searchText
+	 * @return
+	 */
+	public String[] getUserNames(String searchText)
+	{
+		Session session = hibernateSessionFactory.openSession();
+
+		String downloadQuery = "from User where email like :mySearch";
+		Query query = session.createQuery(downloadQuery);
+		query.setParameter("mySearch", searchText + "%");
+		
+		@SuppressWarnings("unchecked")
+		ArrayList<User> users = (ArrayList<User>) query.list();
+		
+		//Here we extract the list of User names
+		ArrayList<String> usernameStrings = new ArrayList<String>();
+		for(User u: users)
+		{
+			usernameStrings.add(u.getEmail());
+		}
+		
+		String[] userNames = new String[usernameStrings.size()];
+		userNames = usernameStrings.toArray(userNames);
+		
+		return userNames;
+	}
+	
+	
 	/***
 	 * Returns the key pair for the System account
 	 * @return the system key pair

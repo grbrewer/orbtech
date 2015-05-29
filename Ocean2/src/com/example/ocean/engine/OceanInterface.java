@@ -10,6 +10,7 @@ import javax.jws.WebService;
 
 @WebService
 public interface OceanInterface {
+	@WebMethod String[] getUserNames(String searchText);
 	@WebMethod String[] getSerialNumbers(String username);
 	@WebMethod String downloadPublicKey(String username, String serialNumber) throws	NoSuchAlgorithmException, 
 																						NoSuchProviderException, 

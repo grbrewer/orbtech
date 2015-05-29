@@ -48,6 +48,12 @@ public class OceanImpl implements OceanInterface {
 	}
 	
 	@Override
+	public String[] getUserNames(String searchText)
+	{
+		return crypteng.getUserNames(searchText);
+	}
+	
+	@Override
 	public String downloadPublicKey(String username, String serialNumber) throws NoSuchAlgorithmException, 
 																				   NoSuchProviderException, 
 																				   InvalidKeySpecException, 

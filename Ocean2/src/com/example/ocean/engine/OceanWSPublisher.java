@@ -13,6 +13,6 @@ public class OceanWSPublisher {
 														CertificateException, 
 														IOException 
 	{  
-		Endpoint.publish("http://192.168.0.7:8080/WS/Ocean", new OceanImpl());  
+		Endpoint.publish("http://192.168.0.4:8080/WS/Ocean", new OceanImpl());  
 	}  	
 }
